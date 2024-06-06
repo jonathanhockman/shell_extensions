@@ -1,0 +1,4 @@
+alias mc="mix compile --warnings-as-errors"
+alias mdeps="mix deps.get"
+alias mdepsc="mix deps.clean --all"
+alias run_serv="mix deps.get; mix ecto.migrate; iex -S mix phx.server"

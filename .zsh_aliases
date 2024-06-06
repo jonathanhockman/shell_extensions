@@ -1,0 +1,9 @@
+# TERMINAL COMMANDS
+alias ll="ls -al"
+alias show_ports="sudo lsof -i -P -n | grep LISTEN"
+
+# Just shortcuts
+alias fix_npm_lock="npm install --legacy-peer-deps -f"
+
+# SDM stuff
+alias sdmkupd="sdm kubernetes update-config" 

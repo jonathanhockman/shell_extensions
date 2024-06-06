@@ -1,0 +1,106 @@
+alias k="kubectl"
+
+function kstatus() {
+    kns "$1"
+
+    for i in {1..100}; do
+        echo "Loop $i"
+        kubectl get pods
+        sleep 3
+        echo ""
+    done
+}
+
+function kpods() {
+    echo $(k get pods --no-headers=true | grep -o "\(\w*-\w*\)*")
+}
+
+function kct() {
+    if [[ -z $1 ]]; then
+        local CONTEXTS=$(k config get-contexts)
+        local LINE_NUM=0
+
+        while read -r line
+        do
+            echo $LINE_NUM $line
+            ((LINE_NUM++))
+        done <<< $CONTEXTS
+
+        echo "Enter context line number:"
+        read LINE_NUM
+
+        CONTEXTS=$(k config get-contexts --no-headers=true -o name)
+        CONTEXT_NAME=$(echo "$CONTEXTS" | sed -n "${LINE_NUM}p")
+        
+        if [ -z "$CONTEXT_NAME" ] || [ $CONTEXT_NAME = $CONTEXTS ]
+        then
+            echo "No valid selection made"
+        else
+            k config use-context $CONTEXT_NAME
+        fi
+    else
+        k config use-context $1
+    fi
+}
+
+function kns() {
+    if [[ -z $1 ]]; then
+        echo "Using current namespace"
+    else
+        echo "Changing namespace to $1"
+        k ns $1
+    fi
+}
+
+function kexec() {
+    echo "Getting name of default pod"
+    
+    local NAME=$1
+    if [[ -z $1 ]]; then
+        NAME="$(k get pods | grep -o "$KUBE_EXEC_POD_NAME_MATCH_DEFAULT\S*" -m 1)"
+    fi
+
+    echo "Connecting to $NAME"
+    local COMMAND="k exec -it $NAME -- $2"
+    eval $COMMAND
+}
+
+function kbash() {
+    kexec "$1" "/bin/bash"
+}
+
+function kremote() {
+    kexec "$1" "$KUBE_REMOTE_COMMAND_DEFAULT"
+}
+
+function kdb() {
+    kns "$1"
+
+    echo "Getting name of Database pod starting with $KUBE_DB_POD_NAME_MATCH_DEFAULT"
+    local NAME="$(k get pods | grep -o "$KUBE_DB_POD_NAME_MATCH_DEFAULT\S*" -m 1)"
+
+    if [[ -z $NAME ]]; then
+        echo "Cannot find Database pod starting with $KUBE_DB_POD_NAME_MATCH_DEFAULT"
+    else
+        local FORWARD_PORT=$KUBE_PORT_FORWARD_DEFAULT
+        local DB_PORT=$KUBE_DB_PORT_DEFAULT
+
+        [[ ! -z $2 ]] && FORWARD_PORT=$2
+        [[ ! -z $3 ]] && DB_PORT=$3
+        
+        echo "Port-forwarding $NAME from remote port $DB_PORT to local port $FORWARD_PORT"
+        k port-forward $NAME $FORWARD_PORT:$DB_PORT
+    fi
+}
+
+function khelp() {
+    echo ""
+    echo "Available kubectl functions"
+    echo "kct [context]                                 Switches to context"
+    echo "kns [namespace]                               Switches to namespace if supplied otherwise nothing"
+    echo "kexec [pod] [command]                         Executes the command on a given namespace for the api pod"
+    echo "kbash [namespace]                             Executes and opens a bash terminal for the api pod"
+    echo "kremote [namespace]                           Executes and opens an interactive IEX terminal for the api pod"
+    echo "kdb [namespace] [forward port] [db port]      Port forward the db pod to local 8080"
+    echo ""
+}
